@@ -25,6 +25,7 @@ import static it.feio.android.omninotes.utils.ConstantsBase.PREF_BACKUP_FOLDER_U
 import static it.feio.android.omninotes.utils.ConstantsBase.PREF_COLORS_APP_DEFAULT;
 import static it.feio.android.omninotes.utils.ConstantsBase.PREF_ENABLE_FILE_LOGGING;
 import static it.feio.android.omninotes.utils.ConstantsBase.PREF_PASSWORD;
+import static it.feio.android.omninotes.utils.ConstantsBase.PREF_BIOMETRIC_ACCESS;
 import static it.feio.android.omninotes.utils.ConstantsBase.PREF_SHOW_UNCATEGORIZED;
 import static it.feio.android.omninotes.utils.ConstantsBase.PREF_SNOOZE_DEFAULT;
 import static java.util.Arrays.asList;
@@ -72,6 +73,7 @@ import it.feio.android.omninotes.helpers.notifications.NotificationsHelper;
 import it.feio.android.omninotes.intro.IntroActivity;
 import it.feio.android.omninotes.models.ONStyle;
 import it.feio.android.omninotes.models.PasswordValidator.Result;
+import it.feio.android.omninotes.utils.BiometricHelper;
 import it.feio.android.omninotes.utils.PasswordHelper;
 import it.feio.android.omninotes.utils.ResourcesUtils;
 import it.feio.android.omninotes.utils.StorageHelper;
@@ -333,6 +335,30 @@ public class SettingsFragment extends PreferenceFragmentCompat {
             passwordAccess.setChecked((Boolean) newValue);
           }
         });
+        return true;
+      });
+    }
+
+    // Use biometric to grant application access
+    final SwitchPreference biometricAccess = findPreference(PREF_BIOMETRIC_ACCESS);
+    if (biometricAccess != null) {
+      if (Prefs.getString(PREF_PASSWORD, null) == null || !BiometricHelper.isBiometricAvailable(getActivity())) {
+        biometricAccess.setEnabled(false);
+        biometricAccess.setChecked(false);
+      } else {
+        biometricAccess.setEnabled(true);
+      }
+      biometricAccess.setOnPreferenceChangeListener((preference, newValue) -> {
+        if (Boolean.TRUE.equals(newValue)) {
+          BiometricHelper.authenticate(getActivity(), success -> {
+            if (success) {
+              biometricAccess.setChecked(true);
+            } else {
+              biometricAccess.setChecked(false);
+            }
+          });
+          return false;
+        }
         return true;
       });
     }

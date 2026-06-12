@@ -17,6 +17,7 @@
 
 package it.feio.android.omninotes.utils;
 
+import static it.feio.android.omninotes.utils.ConstantsBase.PREF_BIOMETRIC_ACCESS;
 import static it.feio.android.omninotes.utils.ConstantsBase.PREF_PASSWORD;
 import static it.feio.android.omninotes.utils.ConstantsBase.PREF_PASSWORD_ANSWER;
 import static it.feio.android.omninotes.utils.ConstantsBase.PREF_PASSWORD_QUESTION;
@@ -27,6 +28,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.inputmethod.EditorInfo;
 import android.widget.EditText;
+import androidx.fragment.app.FragmentActivity;
 import com.afollestad.materialdialogs.DialogAction;
 import com.afollestad.materialdialogs.MaterialDialog;
 import com.pixplicity.easyprefs.library.Prefs;
@@ -43,6 +45,25 @@ public class PasswordHelper {
 
 
   public static void requestPassword(final Activity mActivity,
+      final PasswordValidator mPasswordValidator) {
+    if (Prefs.getBoolean(PREF_BIOMETRIC_ACCESS, false) && mActivity instanceof FragmentActivity) {
+      FragmentActivity fragmentActivity = (FragmentActivity) mActivity;
+      if (BiometricHelper.isBiometricAvailable(fragmentActivity)) {
+        BiometricHelper.authenticate(fragmentActivity, success -> {
+          if (success) {
+            mPasswordValidator.onPasswordValidated(PasswordValidator.Result.SUCCEED);
+          } else {
+            showPasswordDialog(mActivity, mPasswordValidator);
+          }
+        });
+        return;
+      }
+    }
+    showPasswordDialog(mActivity, mPasswordValidator);
+  }
+
+
+  private static void showPasswordDialog(final Activity mActivity,
       final PasswordValidator mPasswordValidator) {
     LayoutInflater inflater = mActivity.getLayoutInflater();
     final View v = inflater.inflate(R.layout.password_request_dialog_layout, null);
@@ -144,6 +165,7 @@ public class PasswordHelper {
         .remove(PREF_PASSWORD)
         .remove(PREF_PASSWORD_QUESTION)
         .remove(PREF_PASSWORD_ANSWER)
+        .remove(PREF_BIOMETRIC_ACCESS)
         .remove("settings_password_access")
         .apply();
     EventBus.getDefault().post(new PasswordRemovedEvent());

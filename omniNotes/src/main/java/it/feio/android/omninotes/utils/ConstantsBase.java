@@ -76,6 +76,7 @@ public interface ConstantsBase {
   String PREF_PASSWORD = "password";
   String PREF_PASSWORD_QUESTION = "password_question";
   String PREF_PASSWORD_ANSWER = "password_answer";
+  String PREF_BIOMETRIC_ACCESS = "settings_biometric_access";
   String PREF_KEEP_CHECKED = "keep_checked";
   String PREF_KEEP_CHECKMARKS = "show_checkmarks";
   String PREF_EXPANDED_VIEW = "expanded_view";

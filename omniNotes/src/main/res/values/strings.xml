@@ -296,6 +296,12 @@
   <string name="settings_backup_summary">Import or export app data</string>
   <string name="settings_max_video_size_summary">Maximum allowed size in MB</string>
   <string name="settings_password_summary">Edit security password</string>
+  <string name="settings_biometric_access">Use biometric to unlock</string>
+  <string name="settings_biometric_access_summary">Unlock notes using your fingerprint or face</string>
+  <string name="biometric_prompt_title">Biometric Unlock</string>
+  <string name="biometric_prompt_subtitle">Use your biometric credential to unlock notes</string>
+  <string name="biometric_prompt_use_password">Use Password</string>
+  <string name="biometric_not_available">Biometric authentication is not available on this device</string>
   <string name="settings_enable_animations_summary">Enable/disable animations in notes list</string>
   <string name="settings_enable_tag_marker_summary">Show/hide colored markers for categories</string>
   <string name="settings_enable_editor_links_summary">Make typed URLs and e-mail addresses automatically clickable</string>
