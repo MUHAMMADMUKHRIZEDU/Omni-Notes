@@ -872,8 +872,8 @@ public class DetailFragment extends BaseFragment implements OnReminderPickedList
 
   private void initViewContent() {
     binding.fragmentDetailContent.detailContent.setText(noteTmp.getContent());
-    binding.fragmentDetailContent.detailContent.gatherLinksForText();
     addInternalLinks(binding.fragmentDetailContent.detailContent);
+    binding.fragmentDetailContent.detailContent.gatherLinksForText();
     binding.fragmentDetailContent.detailContent.setOnTextLinkClickListener(textLinkClickListener);
     // Avoids focused line goes under the keyboard
     binding.fragmentDetailContent.detailContent.addTextChangedListener(this);
@@ -889,11 +889,37 @@ public class DetailFragment extends BaseFragment implements OnReminderPickedList
 
 
   private void addInternalLinks(android.widget.EditText editText) {
+    Editable text = editText.getText();
+
+    // Clear existing internal spans to avoid duplication and conflicts
+    android.text.style.URLSpan[] urlSpans = text.getSpans(0, text.length(), android.text.style.URLSpan.class);
+    for (android.text.style.URLSpan span : urlSpans) {
+        if (span.getURL().startsWith("omninotes://note/")) {
+            text.removeSpan(span);
+        }
+    }
+    android.text.style.ForegroundColorSpan[] colorSpans = text.getSpans(0, text.length(), android.text.style.ForegroundColorSpan.class);
+    for (android.text.style.ForegroundColorSpan span : colorSpans) {
+        text.removeSpan(span);
+    }
+
     Pattern pattern = Pattern.compile("\\[(.*?)\\]");
-    Linkify.addLinks(editText, pattern, "omninotes://note/title/", (s, start, end) -> {
-        String title = s.subSequence(start + 1, end - 1).toString();
-        return DbHelper.getInstance().getNoteByTitle(title) != null;
+    Linkify.addLinks(text, pattern, "omninotes://note/title/", (s, start, end) -> {
+      String title = s.subSequence(start + 1, end - 1).toString();
+      Note n = DbHelper.getInstance().getNoteByTitle(title);
+      return n != null;
     }, (match, url) -> Uri.encode(match.group(1)));
+
+    // Explicitly apply color to the detected links to ensure visibility
+    android.text.style.URLSpan[] newSpans = text.getSpans(0, text.length(), android.text.style.URLSpan.class);
+    int linkColor = getResources().getColor(R.color.colorPrimary);
+    for (android.text.style.URLSpan span : newSpans) {
+        if (span.getURL().startsWith("omninotes://note/")) {
+            int start = text.getSpanStart(span);
+            int end = text.getSpanEnd(span);
+            text.setSpan(new android.text.style.ForegroundColorSpan(linkColor), start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        }
+    }
   }
 
   /**
@@ -1713,12 +1739,12 @@ public class DetailFragment extends BaseFragment implements OnReminderPickedList
     // Refresh links
     if (noteTmp.isChecklist()) {
         if (mChecklistManager.getFocusedItemView() != null) {
-            mChecklistManager.getFocusedItemView().getEditText().gatherLinksForText();
             addInternalLinks(mChecklistManager.getFocusedItemView().getEditText());
+            mChecklistManager.getFocusedItemView().getEditText().gatherLinksForText();
         }
     } else {
-        binding.fragmentDetailContent.detailContent.gatherLinksForText();
         addInternalLinks(binding.fragmentDetailContent.detailContent);
+        binding.fragmentDetailContent.detailContent.gatherLinksForText();
     }
   }
 
@@ -2287,20 +2313,29 @@ public class DetailFragment extends BaseFragment implements OnReminderPickedList
   @Override
   public void onTextChanged(CharSequence s, int start, int before, int count) {
     scrollContent();
-    if (s.length() > 0 && start + count > 0 && s.charAt(Math.max(0, start + count - 1)) == ']') {
-        addInternalLinks(binding.fragmentDetailContent.detailContent);
-    }
   }
+
 
   @Override
   public void beforeTextChanged(CharSequence s, int start, int count, int after) {
     // Nothing to do
   }
 
+
   @Override
   public void afterTextChanged(Editable s) {
-    // Nothing to do
+    if (s.length() > 0 && s.toString().contains("]")) {
+      binding.fragmentDetailContent.detailContent.removeCallbacks(linkRefresher);
+      binding.fragmentDetailContent.detailContent.postDelayed(linkRefresher, 500);
+    }
   }
+
+  private final Runnable linkRefresher = () -> {
+    if (isAdded() && binding != null) {
+      binding.fragmentDetailContent.detailContent.gatherLinksForText();
+      addInternalLinks(binding.fragmentDetailContent.detailContent);
+    }
+  };
 
   @Override
   public void onCheckListChanged() {
