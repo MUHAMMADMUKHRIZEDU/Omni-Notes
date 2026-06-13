@@ -96,7 +96,6 @@ import android.text.Selection;
 import android.text.Spanned;
 import android.text.TextUtils;
 import android.text.TextWatcher;
-import android.text.util.Linkify;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -112,6 +111,7 @@ import android.view.animation.AnimationUtils;
 import android.widget.CheckBox;
 import android.widget.ImageView;
 import android.widget.Toast;
+import androidx.annotation.NonNull;
 import androidx.core.util.Pair;
 import androidx.drawerlayout.widget.DrawerLayout;
 import androidx.fragment.app.FragmentTransaction;
@@ -891,36 +891,47 @@ public class DetailFragment extends BaseFragment implements OnReminderPickedList
   private void addInternalLinks(android.widget.EditText editText) {
     Editable text = editText.getText();
 
-    // Clear existing internal spans to avoid duplication and conflicts
-    android.text.style.URLSpan[] urlSpans = text.getSpans(0, text.length(), android.text.style.URLSpan.class);
-    for (android.text.style.URLSpan span : urlSpans) {
-        if (span.getURL().startsWith("omninotes://note/")) {
+    // Clear existing internal spans to avoid duplication
+    Object[] spans = text.getSpans(0, text.length(), Object.class);
+    for (Object span : spans) {
+        if (span instanceof android.text.style.ClickableSpan || span instanceof android.text.style.ForegroundColorSpan) {
             text.removeSpan(span);
         }
     }
-    android.text.style.ForegroundColorSpan[] colorSpans = text.getSpans(0, text.length(), android.text.style.ForegroundColorSpan.class);
-    for (android.text.style.ForegroundColorSpan span : colorSpans) {
-        text.removeSpan(span);
-    }
 
     Pattern pattern = Pattern.compile("\\[(.*?)\\]");
-    Linkify.addLinks(text, pattern, "omninotes://note/title/", (s, start, end) -> {
-      String title = s.subSequence(start + 1, end - 1).toString();
-      Note n = DbHelper.getInstance().getNoteByTitle(title);
-      return n != null;
-    }, (match, url) -> Uri.encode(match.group(1)));
+    java.util.regex.Matcher matcher = pattern.matcher(text);
+    int linkColor = androidx.core.content.ContextCompat.getColor(mainActivity, R.color.colorPrimary);
 
-    // Explicitly apply color to the detected links to ensure visibility
-    android.text.style.URLSpan[] newSpans = text.getSpans(0, text.length(), android.text.style.URLSpan.class);
-    int linkColor = getResources().getColor(R.color.colorPrimary);
-    for (android.text.style.URLSpan span : newSpans) {
-        if (span.getURL().startsWith("omninotes://note/")) {
-            int start = text.getSpanStart(span);
-            int end = text.getSpanEnd(span);
-            text.setSpan(new android.text.style.ForegroundColorSpan(linkColor), start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+    while (matcher.find()) {
+        String title = matcher.group(1);
+        Note n = DbHelper.getInstance().getNoteByTitle(title);
+        if (n != null) {
+            final String url = "omninotes://note/title/" + Uri.encode(title);
+            final String clickedString = matcher.group(0);
+            int start = matcher.start();
+            int end = matcher.end();
+
+            text.setSpan(new android.text.style.ClickableSpan() {
+                @Override
+                public void onClick(@NonNull View widget) {
+                    textLinkClickListener.onTextLinkClick(widget, clickedString, url);
+                }
+                @Override
+                public void updateDrawState(@NonNull android.text.TextPaint ds) {
+                    ds.setColor(linkColor);
+                    ds.setUnderlineText(false);
+                }
+            }, start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
         }
     }
+
+    if (!(editText.getMovementMethod() instanceof android.text.method.LinkMovementMethod)) {
+        editText.setMovementMethod(android.text.method.LinkMovementMethod.getInstance());
+    }
+    editText.setLinksClickable(true);
   }
+
 
   /**
    * Force focus and shows soft keyboard. Only happens if it's a new note, without shared content.
