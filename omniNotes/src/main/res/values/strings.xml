@@ -465,6 +465,9 @@
   <string name="smart_trigger_time_end">End Time</string>
   <string name="smart_trigger_notification_title">Note nearby!</string>
   <string name="smart_trigger_notification_text">You are near the location for note: %1$s</string>
+  <string name="current_location">Current Location</string>
+  <string name="enter_address">Enter an address or place name</string>
+  <string name="searching">Searching...</string>
   <string name="menu_link_note">Link Note</string>
   <string name="link_note_id">Note ID: %1$s</string>
   <string name="link_note_title">Note Title: %1$s</string>

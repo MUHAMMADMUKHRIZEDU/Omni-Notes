@@ -49,4 +49,15 @@ public class GeocodeHelper {
     return p.matcher(string).matches();
   }
 
+
+  public static Address getCoordinatesFromAddress(Context context, String addressString)
+      throws IOException {
+    Geocoder geocoder = new Geocoder(context, Locale.getDefault());
+    var addresses = geocoder.getFromLocationName(addressString, 1);
+    if (addresses != null && !addresses.isEmpty()) {
+      return addresses.get(0);
+    }
+    return null;
+  }
+
 }

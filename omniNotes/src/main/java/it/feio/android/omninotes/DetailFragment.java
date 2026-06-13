@@ -1643,10 +1643,73 @@ public class DetailFragment extends BaseFragment implements OnReminderPickedList
   private void handleSmartTriggerChoice(int choice) {
     noteTmp.setTriggerType(choice);
     if (choice == Note.TRIGGER_TYPE_LOCATION) {
-      requestLocationPermissions();
+      showLocationSourceDialog();
     } else if (choice == Note.TRIGGER_TYPE_TIME) {
       showTimeRangeDialog();
     }
+  }
+
+
+  private void showLocationSourceDialog() {
+    new MaterialDialog.Builder(mainActivity)
+        .title(R.string.smart_trigger_location)
+        .items(new String[]{
+            getString(R.string.current_location),
+            getString(R.string.search_location)
+        })
+        .itemsCallback((dialog, view, which, text) -> {
+          if (which == 0) {
+            requestLocationPermissions();
+          } else {
+            showSearchLocationDialog();
+          }
+        })
+        .show();
+  }
+
+
+  private void showSearchLocationDialog() {
+    new MaterialDialog.Builder(mainActivity)
+        .title(R.string.search_location)
+        .content(R.string.enter_address)
+        .inputType(android.text.InputType.TYPE_CLASS_TEXT)
+        .input(null, null, (dialog, input) -> {
+          searchForLocation(input.toString());
+        })
+        .positiveText(R.string.ok)
+        .show();
+  }
+
+
+  private void searchForLocation(String addressString) {
+    MaterialDialog progress = new MaterialDialog.Builder(mainActivity)
+        .content(R.string.searching)
+        .progress(true, 0)
+        .show();
+
+    new AsyncTask<Void, Void, Address>() {
+      @Override
+      protected Address doInBackground(Void... voids) {
+        try {
+          return GeocodeHelper.getCoordinatesFromAddress(OmniNotes.getAppContext(), addressString);
+        } catch (IOException e) {
+          LogDelegate.e("Location search failed", e);
+          return null;
+        }
+      }
+
+      @Override
+      protected void onPostExecute(Address address) {
+        if (!isAdded() || mainActivity == null) return;
+        progress.dismiss();
+        if (address != null) {
+          onCoordinatesResolved(address);
+          showLocationRadiusDialog();
+        } else {
+          mainActivity.showMessage(R.string.location_not_found, ONStyle.ALERT);
+        }
+      }
+    }.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
   }
 
 
@@ -1656,15 +1719,11 @@ public class DetailFragment extends BaseFragment implements OnReminderPickedList
           if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
             PermissionsHelper.requestPermission(this, Manifest.permission.ACCESS_BACKGROUND_LOCATION,
                 R.string.permission_coarse_location, binding.snackbarPlaceholder, () -> {
-                  if (!isNoteLocationValid()) {
-                    getLocation(this);
-                  }
+                  getLocation(this);
                   showLocationRadiusDialog();
                 });
           } else {
-            if (!isNoteLocationValid()) {
-              getLocation(this);
-            }
+            getLocation(this);
             showLocationRadiusDialog();
           }
         });
