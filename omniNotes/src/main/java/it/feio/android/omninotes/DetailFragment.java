@@ -889,9 +889,15 @@ public class DetailFragment extends BaseFragment implements OnReminderPickedList
 
 
   private void addInternalLinks(android.widget.EditText editText) {
-    // Legacy support for raw links
-    Pattern rawPattern = Pattern.compile("omninotes://note/\\d+");
-    Linkify.addLinks(editText, rawPattern, "omninotes://note/");
+    Editable text = editText.getText();
+    
+    // Clear existing internal spans to avoid duplication
+    android.text.style.URLSpan[] spans = text.getSpans(0, text.length(), android.text.style.URLSpan.class);
+    for (android.text.style.URLSpan span : spans) {
+        if (span.getURL().startsWith("omninotes://note/")) {
+            text.removeSpan(span);
+        }
+    }
 
     // Support for friendly links [title](url)
     Pattern friendlyPattern = Pattern.compile("\\[(.*?)\\]\\((omninotes://note/\\d+)\\)");
@@ -899,6 +905,22 @@ public class DetailFragment extends BaseFragment implements OnReminderPickedList
         String m = match.group(0);
         return m.substring(m.indexOf("(") + 1, m.length() - 1);
     });
+
+    // Support for Wiki-links [[Title]]
+    Pattern wikiPattern = Pattern.compile("\\[\\[(.*?)\\]\\]");
+    java.util.regex.Matcher matcher = wikiPattern.matcher(text);
+    while (matcher.find()) {
+      String title = matcher.group(1);
+      Note linkedNote = DbHelper.getInstance().getNoteByTitle(title);
+      if (linkedNote != null) {
+        String url = "omninotes://note/" + linkedNote.get_id();
+        text.setSpan(new android.text.style.URLSpan(url), matcher.start(), matcher.end(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+      }
+    }
+
+    // Legacy support for raw links
+    Pattern rawPattern = Pattern.compile("omninotes://note/\\d+");
+    Linkify.addLinks(editText, rawPattern, "omninotes://note/");
   }
 
   /**
@@ -2307,6 +2329,9 @@ public class DetailFragment extends BaseFragment implements OnReminderPickedList
   @Override
   public void onTextChanged(CharSequence s, int start, int before, int count) {
     scrollContent();
+    if (s.length() > 0 && start + count > 0 && s.charAt(Math.max(0, start + count - 1)) == ']') {
+        addInternalLinks(binding.fragmentDetailContent.detailContent);
+    }
   }
 
   @Override

@@ -609,6 +609,14 @@ public class DbHelper extends SQLiteOpenHelper {
     return getNotes(whereCondition, true);
   }
 
+
+  public Note getNoteByTitle(String title) {
+    String escapedTitle = escapeSql(title);
+    List<Note> notes = getNotes(" WHERE " + KEY_TITLE + " = '" + escapedTitle + "'", true);
+    return notes.isEmpty() ? null : notes.get(0);
+  }
+
+
   static String escapeSql(String pattern) {
     return StringUtils.replace(pattern, "'", "''")
         .replace("%", "\\%")
