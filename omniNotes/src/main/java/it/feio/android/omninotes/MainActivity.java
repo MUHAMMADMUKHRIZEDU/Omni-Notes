@@ -440,9 +440,18 @@ public class MainActivity extends BaseActivity implements
       Long id = null;
       if (dataString.startsWith("omninotes://note/")) {
         try {
-          id = Long.valueOf(dataString.replace("omninotes://note/", ""));
-        } catch (NumberFormatException e) {
-          LogDelegate.e("Error parsing note ID from link", e);
+          String path = dataString.replace("omninotes://note/", "");
+          if (path.startsWith("title/")) {
+              String title = Uri.decode(path.replace("title/", ""));
+              Note noteByTitle = DbHelper.getInstance().getNoteByTitle(title);
+              if (noteByTitle != null) {
+                  id = noteByTitle.get_id();
+              }
+          } else {
+              id = Long.valueOf(path);
+          }
+        } catch (Exception e) {
+          LogDelegate.e("Error parsing note link", e);
         }
       } else {
         String idParam = Uri.parse(dataString).getQueryParameter("id");

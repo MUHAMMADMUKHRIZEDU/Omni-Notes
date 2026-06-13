@@ -889,38 +889,11 @@ public class DetailFragment extends BaseFragment implements OnReminderPickedList
 
 
   private void addInternalLinks(android.widget.EditText editText) {
-    Editable text = editText.getText();
-    
-    // Clear existing internal spans to avoid duplication
-    android.text.style.URLSpan[] spans = text.getSpans(0, text.length(), android.text.style.URLSpan.class);
-    for (android.text.style.URLSpan span : spans) {
-        if (span.getURL().startsWith("omninotes://note/")) {
-            text.removeSpan(span);
-        }
-    }
-
-    // Support for friendly links [title](url)
-    Pattern friendlyPattern = Pattern.compile("\\[(.*?)\\]\\((omninotes://note/\\d+)\\)");
-    Linkify.addLinks(editText, friendlyPattern, null, null, (match, url) -> {
-        String m = match.group(0);
-        return m.substring(m.indexOf("(") + 1, m.length() - 1);
-    });
-
-    // Support for Wiki-links [[Title]]
-    Pattern wikiPattern = Pattern.compile("\\[\\[(.*?)\\]\\]");
-    java.util.regex.Matcher matcher = wikiPattern.matcher(text);
-    while (matcher.find()) {
-      String title = matcher.group(1);
-      Note linkedNote = DbHelper.getInstance().getNoteByTitle(title);
-      if (linkedNote != null) {
-        String url = "omninotes://note/" + linkedNote.get_id();
-        text.setSpan(new android.text.style.URLSpan(url), matcher.start(), matcher.end(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-      }
-    }
-
-    // Legacy support for raw links
-    Pattern rawPattern = Pattern.compile("omninotes://note/\\d+");
-    Linkify.addLinks(editText, rawPattern, "omninotes://note/");
+    Pattern pattern = Pattern.compile("\\[(.*?)\\]");
+    Linkify.addLinks(editText, pattern, "omninotes://note/title/", (s, start, end) -> {
+        String title = s.subSequence(start + 1, end - 1).toString();
+        return DbHelper.getInstance().getNoteByTitle(title) != null;
+    }, (match, url) -> Uri.encode(match.group(1)));
   }
 
   /**
@@ -1710,31 +1683,16 @@ public class DetailFragment extends BaseFragment implements OnReminderPickedList
         .title(R.string.select_note_to_link)
         .items(noteTitles)
         .itemsCallback((dialog, view, which, text) -> {
-          Note selectedNote = allNotes.get(which);
-          showLinkTextDialog(selectedNote);
+          insertNoteLink(allNotes.get(which));
         })
         .positiveText(R.string.cancel)
         .show();
   }
 
 
-  private void showLinkTextDialog(Note selectedNote) {
-    String defaultTitle = TextUtils.isEmpty(selectedNote.getTitle()) ? getString(R.string.note) : selectedNote.getTitle();
-    new MaterialDialog.Builder(mainActivity)
-        .title(R.string.menu_link_note)
-        .content(R.string.insert_link_text_description)
-        .inputType(android.text.InputType.TYPE_CLASS_TEXT)
-        .input(null, defaultTitle, (dialog, input) -> {
-          insertNoteLink(selectedNote, input.toString());
-        })
-        .positiveText(R.string.ok)
-        .negativeText(R.string.cancel)
-        .show();
-  }
-
-
-  private void insertNoteLink(Note selectedNote, String linkText) {
-    String link = "[" + linkText + "](" + Constants.NOTE_LINK_SCHEME + selectedNote.get_id() + ")";
+  private void insertNoteLink(Note selectedNote) {
+    String linkText = TextUtils.isEmpty(selectedNote.getTitle()) ? getString(R.string.note) : selectedNote.getTitle();
+    String link = "[" + linkText + "]";
     Editable editable = binding.fragmentDetailContent.detailContent.getText();
     int position = binding.fragmentDetailContent.detailContent.getSelectionStart();
 

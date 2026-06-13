@@ -469,6 +469,5 @@
   <string name="link_note_id">Note ID: %1$s</string>
   <string name="link_note_title">Note Title: %1$s</string>
   <string name="select_note_to_link">Select a note to link</string>
-  <string name="insert_link_text_description">Enter the word or phrase to display for this link:</string>
 
 </resources>
