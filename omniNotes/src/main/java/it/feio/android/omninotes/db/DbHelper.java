@@ -612,7 +612,7 @@ public class DbHelper extends SQLiteOpenHelper {
 
   public Note getNoteByTitle(String title) {
     String escapedTitle = escapeSql(title);
-    List<Note> notes = getNotes(" WHERE " + KEY_TITLE + " = '" + escapedTitle + "' COLLATE NOCASE", true);
+    List<Note> notes = getNotes(" WHERE " + KEY_TITLE + " = '" + escapedTitle + "' COLLATE NOCASE AND " + KEY_TRASHED + " IS NOT 1", true);
     return notes.isEmpty() ? null : notes.get(0);
   }
 
