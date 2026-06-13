@@ -40,6 +40,12 @@ class TagOpenerHelper {
                     intent = Intent(Intent.ACTION_SENDTO)
                     intent.data = Uri.parse(tagText)
                 }
+                "omninotes" -> {
+                    intent = Intent(Intent.ACTION_VIEW, Uri.parse(tagText))
+                    intent.addCategory(Intent.CATEGORY_BROWSABLE)
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    return intent
+                }
                 "hashtag" -> {
                     intent = Intent(Intent.ACTION_VIEW, Uri.parse(tagText))
                     intent.addCategory(Intent.CATEGORY_BROWSABLE)

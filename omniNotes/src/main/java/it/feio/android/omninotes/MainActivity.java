@@ -434,16 +434,32 @@ public class MainActivity extends BaseActivity implements
       return;
     }
 
-    // Home launcher shortcut widget
+    // Home launcher shortcut widget or internal note link
     if (Intent.ACTION_VIEW.equals(i.getAction()) && i.getData() != null) {
-      Long id = Long.valueOf(Uri.parse(i.getDataString()).getQueryParameter("id"));
-      Note note = DbHelper.getInstance().getNote(id);
-      if (note == null) {
-        showMessage(R.string.note_doesnt_exist, ONStyle.ALERT);
+      String dataString = i.getDataString();
+      Long id = null;
+      if (dataString.startsWith("omninotes://note/")) {
+        try {
+          id = Long.valueOf(dataString.replace("omninotes://note/", ""));
+        } catch (NumberFormatException e) {
+          LogDelegate.e("Error parsing note ID from link", e);
+        }
+      } else {
+        String idParam = Uri.parse(dataString).getQueryParameter("id");
+        if (idParam != null) {
+          id = Long.valueOf(idParam);
+        }
+      }
+
+      if (id != null) {
+        Note note = DbHelper.getInstance().getNote(id);
+        if (note == null) {
+          showMessage(R.string.note_doesnt_exist, ONStyle.ALERT);
+          return;
+        }
+        switchToDetail(note);
         return;
       }
-      switchToDetail(note);
-      return;
     }
 
     // Home launcher "new note" shortcut widget

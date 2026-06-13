@@ -96,6 +96,7 @@ import android.text.Selection;
 import android.text.Spanned;
 import android.text.TextUtils;
 import android.text.TextWatcher;
+import android.text.util.Linkify;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -187,6 +188,7 @@ import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.apache.commons.collections4.CollectionUtils;
 
@@ -867,9 +869,11 @@ public class DetailFragment extends BaseFragment implements OnReminderPickedList
     requestFocus(binding.detailTitle);
   }
 
+
   private void initViewContent() {
     binding.fragmentDetailContent.detailContent.setText(noteTmp.getContent());
     binding.fragmentDetailContent.detailContent.gatherLinksForText();
+    addInternalLinks(binding.fragmentDetailContent.detailContent);
     binding.fragmentDetailContent.detailContent.setOnTextLinkClickListener(textLinkClickListener);
     // Avoids focused line goes under the keyboard
     binding.fragmentDetailContent.detailContent.addTextChangedListener(this);
@@ -881,6 +885,20 @@ public class DetailFragment extends BaseFragment implements OnReminderPickedList
       AlphaManager.setAlpha(toggleChecklistView, 0);
       toggleChecklist2();
     }
+  }
+
+
+  private void addInternalLinks(android.widget.EditText editText) {
+    // Legacy support for raw links
+    Pattern rawPattern = Pattern.compile("omninotes://note/\\d+");
+    Linkify.addLinks(editText, rawPattern, "omninotes://note/");
+
+    // Support for friendly links [title](url)
+    Pattern friendlyPattern = Pattern.compile("\\[(.*?)\\]\\((omninotes://note/\\d+)\\)");
+    Linkify.addLinks(editText, friendlyPattern, null, null, (match, url) -> {
+        String m = match.group(0);
+        return m.substring(m.indexOf("(") + 1, m.length() - 1);
+    });
   }
 
   /**
@@ -1319,6 +1337,9 @@ public class DetailFragment extends BaseFragment implements OnReminderPickedList
     // Smart Trigger
     android.widget.TextView smartTriggerSelection = layout.findViewById(R.id.smart_trigger);
     smartTriggerSelection.setOnClickListener(new AttachmentOnClickListener());
+    // Link Note
+    android.widget.TextView linkNoteSelection = layout.findViewById(R.id.link_note);
+    linkNoteSelection.setOnClickListener(new AttachmentOnClickListener());
     // Desktop note with PushBullet
     android.widget.TextView pushbulletSelection = layout.findViewById(R.id.pushbullet);
     pushbulletSelection.setVisibility(View.VISIBLE);
@@ -1653,6 +1674,72 @@ public class DetailFragment extends BaseFragment implements OnReminderPickedList
         noteTmp.setTriggerTimeEnd(time);
       }
     }, cal.get(Calendar.HOUR_OF_DAY), cal.get(Calendar.MINUTE), true).show();
+  }
+
+
+  private void showLinkNoteDialog() {
+    List<Note> allNotes = DbHelper.getInstance().getAllNotes(false);
+    String[] noteTitles = new String[allNotes.size()];
+    for (int i = 0; i < allNotes.size(); i++) {
+      noteTitles[i] = TextUtils.isEmpty(allNotes.get(i).getTitle()) ? "[" + getString(R.string.note) + " " + allNotes.get(i).get_id() + "]" : allNotes.get(i).getTitle();
+    }
+
+    new MaterialDialog.Builder(mainActivity)
+        .title(R.string.select_note_to_link)
+        .items(noteTitles)
+        .itemsCallback((dialog, view, which, text) -> {
+          Note selectedNote = allNotes.get(which);
+          showLinkTextDialog(selectedNote);
+        })
+        .positiveText(R.string.cancel)
+        .show();
+  }
+
+
+  private void showLinkTextDialog(Note selectedNote) {
+    String defaultTitle = TextUtils.isEmpty(selectedNote.getTitle()) ? getString(R.string.note) : selectedNote.getTitle();
+    new MaterialDialog.Builder(mainActivity)
+        .title(R.string.menu_link_note)
+        .content(R.string.insert_link_text_description)
+        .inputType(android.text.InputType.TYPE_CLASS_TEXT)
+        .input(null, defaultTitle, (dialog, input) -> {
+          insertNoteLink(selectedNote, input.toString());
+        })
+        .positiveText(R.string.ok)
+        .negativeText(R.string.cancel)
+        .show();
+  }
+
+
+  private void insertNoteLink(Note selectedNote, String linkText) {
+    String link = "[" + linkText + "](" + Constants.NOTE_LINK_SCHEME + selectedNote.get_id() + ")";
+    Editable editable = binding.fragmentDetailContent.detailContent.getText();
+    int position = binding.fragmentDetailContent.detailContent.getSelectionStart();
+
+    if (noteTmp.isChecklist()) {
+      if (mChecklistManager.getFocusedItemView() != null) {
+        editable = mChecklistManager.getFocusedItemView().getEditText().getEditableText();
+        position = mChecklistManager.getFocusedItemView().getEditText().getSelectionStart();
+      }
+    }
+
+    String leadSpace = position == 0 || editable.charAt(position - 1) == ' ' ? "" : " ";
+    String trailSpace = position == editable.length() || editable.charAt(position) == ' ' ? "" : " ";
+    String textToInsert = leadSpace + link + trailSpace;
+
+    editable.insert(position, textToInsert);
+    Selection.setSelection(editable, position + textToInsert.length());
+
+    // Refresh links
+    if (noteTmp.isChecklist()) {
+        if (mChecklistManager.getFocusedItemView() != null) {
+            mChecklistManager.getFocusedItemView().getEditText().gatherLinksForText();
+            addInternalLinks(mChecklistManager.getFocusedItemView().getEditText());
+        }
+    } else {
+        binding.fragmentDetailContent.detailContent.gatherLinksForText();
+        addInternalLinks(binding.fragmentDetailContent.detailContent);
+    }
   }
 
 
@@ -2441,6 +2528,9 @@ public class DetailFragment extends BaseFragment implements OnReminderPickedList
           break;
         case R.id.smart_trigger:
           showSmartTriggerDialog();
+          break;
+        case R.id.link_note:
+          showLinkNoteDialog();
           break;
         case R.id.pushbullet:
           MessagingExtension.mirrorMessage(mainActivity, getString(R.string.app_name),

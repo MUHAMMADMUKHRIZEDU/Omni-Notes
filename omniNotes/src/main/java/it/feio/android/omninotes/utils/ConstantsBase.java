@@ -121,4 +121,6 @@ public interface ConstantsBase {
 
   String AUTO_BACKUP_DIR = "_autobackup";
 
+  String NOTE_LINK_SCHEME = "omninotes://note/";
+
 }

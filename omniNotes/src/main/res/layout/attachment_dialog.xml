@@ -163,6 +163,21 @@
       android:textSize="@dimen/attachment_dialog_text_size"
       pixlui:typeface="Roboto-Regular.ttf" />
 
+    <com.neopixl.pixlui.components.textview.TextView
+      android:id="@+id/link_note"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:padding="@dimen/attachment_dialog_items_padding"
+      android:paddingStart="@dimen/horizontal_margin"
+      android:paddingEnd="@dimen/horizontal_margin"
+      android:background="@drawable/icon_selector"
+      android:drawablePadding="@dimen/attachment_dialog_drawable_padding"
+      android:drawableStart="@drawable/ic_call_merge_white_24dp"
+      android:text="@string/menu_link_note"
+      android:textColor="@color/text_gray"
+      android:textSize="@dimen/attachment_dialog_text_size"
+      pixlui:typeface="Roboto-Regular.ttf" />
+
   </LinearLayout>
 
 </ScrollView>
