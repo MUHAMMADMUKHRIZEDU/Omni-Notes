@@ -17,19 +17,29 @@
 package it.feio.android.omninotes.helpers.location
 
 import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
 import it.feio.android.omninotes.OmniNotes
 import it.feio.android.omninotes.models.listeners.OnGeoUtilResultListener
+import java.lang.SecurityException
 
 class FuseLocationProvider : LocationProvider {
 
-    @kotlin.Throws(SecurityException::class)
+    override fun instantiate() {
+        // Not needed for this variant
+    }
+
+    @Throws(SecurityException::class)
     override fun getLocation(onGeoUtilResultListener: OnGeoUtilResultListener?) {
-        LocationServices.getFusedLocationProviderClient(OmniNotes.getAppContext()).getLastLocation()
+        val client = LocationServices.getFusedLocationProviderClient(OmniNotes.getAppContext())
+        client.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null)
             .addOnSuccessListener { location ->
-                if (location == null) {
-                    onGeoUtilResultListener?.onLocationUnavailable(null)
+                if (location != null) {
+                    onGeoUtilResultListener?.onLocationRetrieved(location)
+                } else {
+                    client.lastLocation.addOnSuccessListener { lastLoc ->
+                        onGeoUtilResultListener?.onLocationRetrieved(lastLoc)
+                    }.addOnFailureListener { e -> onGeoUtilResultListener?.onLocationUnavailable(e) }
                 }
-                onGeoUtilResultListener?.onLocationRetrieved(location)
             }
             .addOnFailureListener { e -> onGeoUtilResultListener?.onLocationUnavailable(e) }
     }

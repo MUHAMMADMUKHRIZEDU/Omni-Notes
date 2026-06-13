@@ -24,6 +24,7 @@ import androidx.core.location.LocationManagerCompat
 import androidx.core.location.LocationRequestCompat
 import it.feio.android.omninotes.OmniNotes
 import it.feio.android.omninotes.models.listeners.OnGeoUtilResultListener
+import java.lang.SecurityException
 
 class LocationManagerLocationProvider : LocationProvider {
 
@@ -34,7 +35,7 @@ class LocationManagerLocationProvider : LocationProvider {
         locationManager = OmniNotes.getAppContext().getSystemService(Context.LOCATION_SERVICE) as? LocationManager
     }
 
-    @kotlin.Throws(SecurityException::class)
+    @Throws(SecurityException::class)
     override fun getLocation(onGeoUtilResultListener: OnGeoUtilResultListener?) {
         if (locationManager == null) {
             instantiate()

@@ -16,12 +16,9 @@
  */
 package it.feio.android.omninotes.helpers.location
 
-import lombok.experimental.UtilityClass
-
-@UtilityClass
 object LocationProviderFactory {
 
-    @Override
+    @JvmStatic
     fun getProvider(): LocationProvider {
         return FuseLocationProvider()
     }

@@ -17,18 +17,22 @@
 package it.feio.android.omninotes.helpers.location
 
 import android.content.Context
+import java.lang.SecurityException
+import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
 import it.feio.android.omninotes.OmniNotes
 import it.feio.android.omninotes.models.listeners.OnGeoUtilResultListener
 
 class FuseLocationProvider : LocationProvider {
 
     companion object {
+        private val lock = Any()
         @Volatile
-        private var fusedLocationProviderClient: com.google.android.gms.location.FusedLocationProviderClient? = null
+        private var fusedLocationProviderClient: FusedLocationProviderClient? = null
 
-        fun getFusedLocationProviderClient(context: Context): com.google.android.gms.location.FusedLocationProviderClient {
-            return fusedLocationProviderClient ?: synchronized(this) {
+        fun getFusedLocationProviderClient(context: Context): FusedLocationProviderClient {
+            return fusedLocationProviderClient ?: synchronized(lock) {
                 fusedLocationProviderClient ?: LocationServices.getFusedLocationProviderClient(context).also {
                     fusedLocationProviderClient = it
                 }
@@ -40,14 +44,18 @@ class FuseLocationProvider : LocationProvider {
         getFusedLocationProviderClient(OmniNotes.getAppContext())
     }
 
-    @kotlin.Throws(SecurityException::class)
+    @Throws(SecurityException::class)
     override fun getLocation(onGeoUtilResultListener: OnGeoUtilResultListener?) {
-        getFusedLocationProviderClient(OmniNotes.getAppContext()).getLastLocation()
+        val client = getFusedLocationProviderClient(OmniNotes.getAppContext())
+        client.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null)
             .addOnSuccessListener { location ->
-                if (location == null) {
-                    onGeoUtilResultListener?.onLocationUnavailable(null)
+                if (location != null) {
+                    onGeoUtilResultListener?.onLocationRetrieved(location)
+                } else {
+                    client.lastLocation.addOnSuccessListener { lastLoc ->
+                        onGeoUtilResultListener?.onLocationRetrieved(lastLoc)
+                    }.addOnFailureListener { e -> onGeoUtilResultListener?.onLocationUnavailable(e) }
                 }
-                onGeoUtilResultListener?.onLocationRetrieved(location)
             }
             .addOnFailureListener { e -> onGeoUtilResultListener?.onLocationUnavailable(e) }
     }

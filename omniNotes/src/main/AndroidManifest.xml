@@ -20,6 +20,8 @@
 
 
   <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+  <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+  <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
   <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29"/>
   <uses-permission android:name="android.permission.VIBRATE" />
   <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
@@ -212,6 +214,10 @@
 
     <!-- Alarm broadcast receiver -->
     <receiver android:name="it.feio.android.omninotes.receiver.AlarmReceiver" />
+
+    <receiver android:name="it.feio.android.omninotes.receiver.GeofenceReceiver"
+      android:enabled="true"
+      android:exported="true" />
 
     <!-- Reboot broadcast receiver -->
     <receiver

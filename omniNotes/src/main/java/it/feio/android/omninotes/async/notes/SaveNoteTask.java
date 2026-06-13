@@ -24,6 +24,7 @@ import it.feio.android.omninotes.OmniNotes;
 import it.feio.android.omninotes.async.bus.NotesUpdatedEvent;
 import it.feio.android.omninotes.db.DbHelper;
 import it.feio.android.omninotes.helpers.LogDelegate;
+import it.feio.android.omninotes.helpers.location.GeofenceHelper;
 import it.feio.android.omninotes.models.Attachment;
 import it.feio.android.omninotes.models.Note;
 import it.feio.android.omninotes.utils.ReminderHelper;
@@ -52,6 +53,13 @@ public class SaveNoteTask extends AsyncTask<Note, Void, Note> {
       note.setReminderFired(false);
     }
     note = DbHelper.getInstance().updateNote(note, updateLastModification);
+
+    GeofenceHelper geofenceHelper = new GeofenceHelper(context);
+    geofenceHelper.removeGeofence(note);
+    if (note.getTriggerType() == Note.TRIGGER_TYPE_LOCATION) {
+      geofenceHelper.addGeofence(note);
+    }
+
     if (reminderMustBeSet) {
       ReminderHelper.addReminder(context, note);
     }
@@ -62,28 +70,12 @@ public class SaveNoteTask extends AsyncTask<Note, Void, Note> {
     List<Attachment> deletedAttachments = note.getAttachmentsListOld();
     for (Attachment attachment : note.getAttachmentsList()) {
       if (attachment.getId() != null) {
-        // Workaround to prevent deleting attachments if instance is changed (app restart)
-        if (!deletedAttachments.contains(attachment)) {
-          attachment = getFixedAttachmentInstance(deletedAttachments, attachment);
-        }
         deletedAttachments.remove(attachment);
       }
     }
-    // Remove from database deleted attachments
-    for (Attachment deletedAttachment : deletedAttachments) {
-      StorageHelper.delete(context, deletedAttachment.getUri().getPath());
-      LogDelegate.d("Removed attachment " + deletedAttachment.getUri());
+    for (Attachment attachmentDeleted : deletedAttachments) {
+      StorageHelper.delete(context, attachmentDeleted.getUri().getPath());
     }
-  }
-
-  private Attachment getFixedAttachmentInstance(List<Attachment> deletedAttachments,
-      Attachment attachment) {
-    for (Attachment deletedAttachment : deletedAttachments) {
-      if (deletedAttachment.getId().equals(attachment.getId())) {
-        return deletedAttachment;
-      }
-    }
-    return attachment;
   }
 
   @Override
@@ -91,5 +83,4 @@ public class SaveNoteTask extends AsyncTask<Note, Void, Note> {
     super.onPostExecute(note);
     EventBus.getDefault().post(new NotesUpdatedEvent(List.of(note)));
   }
-
 }

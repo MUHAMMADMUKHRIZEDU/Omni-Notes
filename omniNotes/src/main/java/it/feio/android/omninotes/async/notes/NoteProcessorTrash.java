@@ -19,6 +19,7 @@ package it.feio.android.omninotes.async.notes;
 
 import it.feio.android.omninotes.OmniNotes;
 import it.feio.android.omninotes.db.DbHelper;
+import it.feio.android.omninotes.helpers.location.GeofenceHelper;
 import it.feio.android.omninotes.models.Note;
 import it.feio.android.omninotes.utils.ReminderHelper;
 import it.feio.android.omninotes.utils.ShortcutHelper;
@@ -38,11 +39,16 @@ public class NoteProcessorTrash extends NoteProcessor {
 
   @Override
   protected void processNote(Note note) {
+    GeofenceHelper geofenceHelper = new GeofenceHelper(OmniNotes.getAppContext());
     if (trash) {
       ShortcutHelper.removeShortcut(OmniNotes.getAppContext(), note);
       ReminderHelper.removeReminder(OmniNotes.getAppContext(), note);
+      geofenceHelper.removeGeofence(note);
     } else {
       ReminderHelper.addReminder(OmniNotes.getAppContext(), note);
+      if (note.getTriggerType() == Note.TRIGGER_TYPE_LOCATION) {
+        geofenceHelper.addGeofence(note);
+      }
     }
     DbHelper.getInstance().trashNote(note, trash);
   }

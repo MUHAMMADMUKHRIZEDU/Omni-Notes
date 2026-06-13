@@ -16,7 +16,11 @@ CREATE
 		address TEXT,
 		category_id INTEGER DEFAULT null,
 		locked INTEGER,  
-		checklist  INTEGER
+		checklist INTEGER,
+		trigger_type INTEGER DEFAULT 0,
+		trigger_location_radius REAL,
+		trigger_time_start TEXT,
+		trigger_time_end TEXT
 	);
 	
 

@@ -45,6 +45,15 @@ public class Note extends BaseNote implements Parcelable {
   // Not saved in DB
   private boolean passwordChecked = false;
 
+  public static final int TRIGGER_TYPE_NONE = 0;
+  public static final int TRIGGER_TYPE_LOCATION = 1;
+  public static final int TRIGGER_TYPE_TIME = 2;
+
+  private Integer triggerType = TRIGGER_TYPE_NONE;
+  private Double triggerLocationRadius;
+  private String triggerTimeStart;
+  private String triggerTimeEnd;
+
 
   public Note() {
     super();
@@ -66,6 +75,10 @@ public class Note extends BaseNote implements Parcelable {
   public Note(Note note) {
     super(note);
     setPasswordChecked(note.isPasswordChecked());
+    setTriggerType(note.getTriggerType());
+    setTriggerLocationRadius(note.getTriggerLocationRadius());
+    setTriggerTimeStart(note.getTriggerTimeStart());
+    setTriggerTimeEnd(note.getTriggerTimeEnd());
   }
 
 
@@ -85,7 +98,61 @@ public class Note extends BaseNote implements Parcelable {
     super.setCategory(in.readParcelable(Category.class.getClassLoader()));
     setLocked(in.readInt());
     setChecklist(in.readInt());
+    setTriggerType(in.readInt());
+    double radius = in.readDouble();
+    setTriggerLocationRadius(radius == -1 ? null : radius);
+    setTriggerTimeStart(in.readString());
+    setTriggerTimeEnd(in.readString());
     in.readList(getAttachmentsList(), Attachment.class.getClassLoader());
+  }
+
+  public Integer getTriggerType() {
+    return triggerType != null ? triggerType : TRIGGER_TYPE_NONE;
+  }
+
+  public void setTriggerType(Integer triggerType) {
+    this.triggerType = triggerType;
+  }
+
+  public Double getTriggerLocationRadius() {
+    return triggerLocationRadius;
+  }
+
+  public void setTriggerLocationRadius(Double triggerLocationRadius) {
+    this.triggerLocationRadius = triggerLocationRadius;
+  }
+
+  public String getTriggerTimeStart() {
+    return triggerTimeStart;
+  }
+
+  public void setTriggerTimeStart(String triggerTimeStart) {
+    this.triggerTimeStart = triggerTimeStart;
+  }
+
+  public String getTriggerTimeEnd() {
+    return triggerTimeEnd;
+  }
+
+  public void setTriggerTimeEnd(String triggerTimeEnd) {
+    this.triggerTimeEnd = triggerTimeEnd;
+  }
+
+
+  public boolean isActiveRoutine() {
+    if (getTriggerType() != TRIGGER_TYPE_TIME || getTriggerTimeStart() == null
+        || getTriggerTimeEnd() == null) {
+      return false;
+    }
+    String now = new java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault())
+        .format(new java.util.Date());
+    return now.compareTo(getTriggerTimeStart()) >= 0 && now.compareTo(getTriggerTimeEnd()) <= 0;
+  }
+
+
+  public boolean hasLocationTrigger() {
+    return getTriggerType() == TRIGGER_TYPE_LOCATION && getLatitude() != null
+        && getLongitude() != null;
   }
 
   public List<Attachment> getAttachmentsList() {
@@ -182,6 +249,10 @@ public class Note extends BaseNote implements Parcelable {
     parcel.writeParcelable(getCategory(), 0);
     parcel.writeInt(isLocked() ? 1 : 0);
     parcel.writeInt(isChecklist() ? 1 : 0);
+    parcel.writeInt(getTriggerType());
+    parcel.writeDouble(getTriggerLocationRadius() != null ? getTriggerLocationRadius() : -1);
+    parcel.writeString(getTriggerTimeStart());
+    parcel.writeString(getTriggerTimeEnd());
     parcel.writeList(getAttachmentsList());
   }
 

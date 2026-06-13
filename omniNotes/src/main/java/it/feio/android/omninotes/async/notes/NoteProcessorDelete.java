@@ -21,6 +21,7 @@ import de.greenrobot.event.EventBus;
 import it.feio.android.omninotes.OmniNotes;
 import it.feio.android.omninotes.async.bus.NotesDeletedEvent;
 import it.feio.android.omninotes.db.DbHelper;
+import it.feio.android.omninotes.helpers.location.GeofenceHelper;
 import it.feio.android.omninotes.models.Attachment;
 import it.feio.android.omninotes.models.Note;
 import it.feio.android.omninotes.utils.StorageHelper;
@@ -47,11 +48,15 @@ public class NoteProcessorDelete extends NoteProcessor {
   @Override
   protected void processNote(Note note) {
     DbHelper db = DbHelper.getInstance();
-    if (db.deleteNote(note) && !keepAttachments) {
-      for (Attachment mAttachment : note.getAttachmentsList()) {
-        StorageHelper
-            .deleteExternalStoragePrivateFile(OmniNotes.getAppContext(), mAttachment.getUri()
-                .getLastPathSegment());
+    if (db.deleteNote(note)) {
+      GeofenceHelper geofenceHelper = new GeofenceHelper(OmniNotes.getAppContext());
+      geofenceHelper.removeGeofence(note);
+      if (!keepAttachments) {
+        for (Attachment mAttachment : note.getAttachmentsList()) {
+          StorageHelper
+              .deleteExternalStoragePrivateFile(OmniNotes.getAppContext(), mAttachment.getUri()
+                  .getLastPathSegment());
+        }
       }
     }
   }

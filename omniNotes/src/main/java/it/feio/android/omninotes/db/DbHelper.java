@@ -74,7 +74,7 @@ public class DbHelper extends SQLiteOpenHelper {
 
   // Database name
   // Database version aligned if possible to software version
-  private static final int DATABASE_VERSION = 625;
+  private static final int DATABASE_VERSION = 626;
   // Sql query file directory
   private static final String SQL_DIR = "sql";
 
@@ -97,6 +97,10 @@ public class DbHelper extends SQLiteOpenHelper {
   public static final String KEY_CATEGORY = "category_id";
   public static final String KEY_LOCKED = "locked";
   public static final String KEY_CHECKLIST = "checklist";
+  public static final String KEY_TRIGGER_TYPE = "trigger_type";
+  public static final String KEY_TRIGGER_LOCATION_RADIUS = "trigger_location_radius";
+  public static final String KEY_TRIGGER_TIME_START = "trigger_time_start";
+  public static final String KEY_TRIGGER_TIME_END = "trigger_time_end";
 
   // Attachments table name
   public static final String TABLE_ATTACHMENTS = "attachments";
@@ -246,6 +250,10 @@ public class DbHelper extends SQLiteOpenHelper {
     values.put(KEY_CATEGORY, note.getCategory() != null ? note.getCategory().getId() : null);
     values.put(KEY_LOCKED, note.isLocked() != null && note.isLocked());
     values.put(KEY_CHECKLIST, note.isChecklist() != null && note.isChecklist());
+    values.put(KEY_TRIGGER_TYPE, note.getTriggerType());
+    values.put(KEY_TRIGGER_LOCATION_RADIUS, note.getTriggerLocationRadius());
+    values.put(KEY_TRIGGER_TIME_START, note.getTriggerTimeStart());
+    values.put(KEY_TRIGGER_TIME_END, note.getTriggerTimeEnd());
 
     db.insertWithOnConflict(TABLE_NOTES, KEY_ID, values, CONFLICT_REPLACE);
     LogDelegate.d("Updated note titled '" + note.getTitle() + "'");
@@ -420,6 +428,10 @@ public class DbHelper extends SQLiteOpenHelper {
     sortColumn = KEY_REMINDER.equals(sortColumn) ? "IFNULL(" + KEY_REMINDER + ", " +
         "" + TIMESTAMP_UNIX_EPOCH + ")" : sortColumn;
 
+    String routineOrder = "(CASE WHEN " + KEY_TRIGGER_TYPE + " = " + Note.TRIGGER_TYPE_TIME
+        + " AND strftime('%H:%M', 'now', 'localtime') BETWEEN " + KEY_TRIGGER_TIME_START + " AND " + KEY_TRIGGER_TIME_END
+        + " THEN 0 ELSE 1 END)";
+
     // Generic query to be specialized with conditions passed as parameter
     String query = "SELECT "
         + KEY_CREATION + ","
@@ -436,6 +448,10 @@ public class DbHelper extends SQLiteOpenHelper {
         + KEY_ADDRESS + ","
         + KEY_LOCKED + ","
         + KEY_CHECKLIST + ","
+        + KEY_TRIGGER_TYPE + ","
+        + KEY_TRIGGER_LOCATION_RADIUS + ","
+        + KEY_TRIGGER_TIME_START + ","
+        + KEY_TRIGGER_TIME_END + ","
         + KEY_CATEGORY + ","
         + KEY_CATEGORY_NAME + ","
         + KEY_CATEGORY_DESCRIPTION + ","
@@ -443,7 +459,7 @@ public class DbHelper extends SQLiteOpenHelper {
         + " FROM " + TABLE_NOTES
         + " LEFT JOIN " + TABLE_CATEGORY + " USING( " + KEY_CATEGORY + ") "
         + whereCondition
-        + (order ? " ORDER BY " + sortColumn + " COLLATE NOCASE " + sortOrder : "");
+        + (order ? " ORDER BY " + routineOrder + " ASC, " + sortColumn + " COLLATE NOCASE " + sortOrder : "");
 
     LogDelegate.v("Query: " + query);
 
@@ -467,6 +483,13 @@ public class DbHelper extends SQLiteOpenHelper {
           note.setAddress(cursor.getString(i++));
           note.setLocked("1".equals(cursor.getString(i++)));
           note.setChecklist("1".equals(cursor.getString(i++)));
+          note.setTriggerType(cursor.getInt(i++));
+          if (!cursor.isNull(i)) {
+            note.setTriggerLocationRadius(cursor.getDouble(i));
+          }
+          i++;
+          note.setTriggerTimeStart(cursor.getString(i++));
+          note.setTriggerTimeEnd(cursor.getString(i++));
 
           // Eventual decryption of content
           if (Boolean.TRUE.equals(note.isLocked())) {

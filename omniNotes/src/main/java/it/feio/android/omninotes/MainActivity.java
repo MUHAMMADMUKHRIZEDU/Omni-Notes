@@ -91,8 +91,16 @@ public class MainActivity extends BaseActivity implements
   public static final String FRAGMENT_LIST_TAG = "fragment_list";
   public static final String FRAGMENT_DETAIL_TAG = "fragment_detail";
   public static final String FRAGMENT_SKETCH_TAG = "fragment_sketch";
-  @Getter @Setter
   private Uri sketchUri;
+
+  public Uri getSketchUri() {
+    return sketchUri;
+  }
+
+  public void setSketchUri(Uri sketchUri) {
+    this.sketchUri = sketchUri;
+  }
+
   boolean prefsChanged = false;
   private FragmentManager mFragmentManager;
 

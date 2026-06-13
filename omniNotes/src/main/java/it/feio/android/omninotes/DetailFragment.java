@@ -167,7 +167,9 @@ import it.feio.android.omninotes.utils.FileHelper;
 import it.feio.android.omninotes.utils.FileProviderHelper;
 import it.feio.android.omninotes.utils.IntentChecker;
 import it.feio.android.omninotes.utils.KeyboardUtils;
+import it.feio.android.omninotes.utils.OCRHelper;
 import it.feio.android.omninotes.utils.PasswordHelper;
+import it.feio.android.omninotes.utils.TranscriptionHelper;
 import it.feio.android.omninotes.utils.ReminderHelper;
 import it.feio.android.omninotes.utils.Security;
 import it.feio.android.omninotes.utils.ShortcutHelper;
@@ -201,6 +203,8 @@ public class DetailFragment extends BaseFragment implements OnReminderPickedList
   private static final int CATEGORY = 5;
   private static final int DETAIL = 6;
   private static final int FILES = 7;
+  private static final int OCR_IMG = 8;
+  private static final int OCR_TAKE_PHOTO = 9;
 
   private FragmentDetailBinding binding;
 
@@ -947,7 +951,8 @@ public class DetailFragment extends BaseFragment implements OnReminderPickedList
 
   @Override
   public void onLocationUnavailable(Exception e) {
-    mainActivity.showMessage(R.string.location_not_found + ": " + e.getMessage(), ONStyle.ALERT);
+    String message = e != null ? ": " + e.getMessage() : "";
+    mainActivity.showMessage(getString(R.string.location_not_found) + message, ONStyle.ALERT);
   }
 
   public void onLocationNotEnabled(){
@@ -1119,6 +1124,12 @@ public class DetailFragment extends BaseFragment implements OnReminderPickedList
         break;
       case R.id.menu_note_info:
         showNoteInfo();
+        break;
+      case R.id.menu_scan_text:
+        scanText();
+        break;
+      case R.id.menu_voice_transcribe:
+        voiceTranscribe();
         break;
       default:
         LogDelegate.w("Invalid menu option selected");
@@ -1305,6 +1316,9 @@ public class DetailFragment extends BaseFragment implements OnReminderPickedList
     // Time
     android.widget.TextView timeStampSelection = layout.findViewById(R.id.timestamp);
     timeStampSelection.setOnClickListener(new AttachmentOnClickListener());
+    // Smart Trigger
+    android.widget.TextView smartTriggerSelection = layout.findViewById(R.id.smart_trigger);
+    smartTriggerSelection.setOnClickListener(new AttachmentOnClickListener());
     // Desktop note with PushBullet
     android.widget.TextView pushbulletSelection = layout.findViewById(R.id.pushbullet);
     pushbulletSelection.setVisibility(View.VISIBLE);
@@ -1446,6 +1460,14 @@ public class DetailFragment extends BaseFragment implements OnReminderPickedList
         case DETAIL:
           mainActivity.showMessage(R.string.note_updated, ONStyle.CONFIRM);
           break;
+        case OCR_IMG:
+          if (intent != null && intent.getData() != null) {
+            extractTextFromImage(intent.getData());
+          }
+          break;
+        case OCR_TAKE_PHOTO:
+          extractTextFromImage(attachmentUri);
+          break;
         default:
           LogDelegate.e("Wrong element choosen: " + requestCode);
       }
@@ -1466,6 +1488,173 @@ public class DetailFragment extends BaseFragment implements OnReminderPickedList
       new AttachmentTask(this, uri, name, this).executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
     }
   }
+
+  private void scanText() {
+    new MaterialDialog.Builder(mainActivity)
+        .title(R.string.menu_scan_text)
+        .items(new String[]{getString(R.string.camera), getString(R.string.gallery)})
+        .itemsCallback((dialog, view, which, text) -> {
+          if (which == 0) { // Camera
+            if (!mainActivity.getPackageManager().hasSystemFeature(FEATURE_CAMERA)) {
+              Toast.makeText(mainActivity, R.string.feature_not_available_on_this_device, LENGTH_SHORT).show();
+              return;
+            }
+            PermissionsHelper.requestPermission(this, CAMERA,
+                R.string.permission_camera, binding.snackbarPlaceholder, () -> {
+                  Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+                  File f = StorageHelper.createNewAttachmentFile(mainActivity, MIME_TYPE_IMAGE_EXT);
+                  if (f != null) {
+                    attachmentUri = FileProviderHelper.getFileProvider(f);
+                    intent.putExtra(MediaStore.EXTRA_OUTPUT, attachmentUri);
+                    startActivityForResult(intent, OCR_TAKE_PHOTO);
+                  }
+                });
+          } else { // Gallery
+            Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
+            intent.setType("image/*");
+            startActivityForResult(intent, OCR_IMG);
+          }
+        })
+        .build().show();
+  }
+
+  private void extractTextFromImage(Uri uri) {
+    OCRHelper.extractText(mainActivity, uri, new OCRHelper.OCRCallback() {
+      @Override
+      public void onTextExtracted(String text) {
+        if (!TextUtils.isEmpty(text)) {
+          String currentContent = binding.fragmentDetailContent.detailContent.getText().toString();
+          if (!TextUtils.isEmpty(currentContent)) {
+            currentContent += "\n\n";
+          }
+          binding.fragmentDetailContent.detailContent.setText(currentContent + text);
+          binding.fragmentDetailContent.detailContent.setSelection(binding.fragmentDetailContent.detailContent.getText().length());
+        } else {
+          Toast.makeText(mainActivity, R.string.ocr_no_text, Toast.LENGTH_LONG).show();
+        }
+      }
+
+      @Override
+      public void onFailure(Exception e) {
+        LogDelegate.e("OCR failed", e);
+        Toast.makeText(mainActivity, R.string.ocr_failed, Toast.LENGTH_LONG).show();
+      }
+    });
+  }
+
+
+  private void voiceTranscribe() {
+    PermissionsHelper.requestPermission(this, Manifest.permission.RECORD_AUDIO,
+        R.string.permission_audio_recording, binding.snackbarPlaceholder, () -> {
+          mainActivity.showMessage(R.string.transcribing, ONStyle.INFO);
+          TranscriptionHelper.startListening(mainActivity, new TranscriptionHelper.TranscriptionCallback() {
+            @Override
+            public void onTranscriptionResult(String text) {
+              if (!TextUtils.isEmpty(text)) {
+                String currentContent = binding.fragmentDetailContent.detailContent.getText().toString();
+                if (!TextUtils.isEmpty(currentContent)) {
+                  currentContent += " ";
+                }
+                binding.fragmentDetailContent.detailContent.setText(currentContent + text);
+                binding.fragmentDetailContent.detailContent.setSelection(binding.fragmentDetailContent.detailContent.getText().length());
+              }
+            }
+
+            @Override
+            public void onTranscriptionError(String error) {
+              LogDelegate.e("Transcription error: " + error);
+              mainActivity.showMessage(error, ONStyle.ALERT);
+            }
+          });
+        });
+  }
+
+
+  private void showSmartTriggerDialog() {
+    new MaterialDialog.Builder(mainActivity)
+        .title(R.string.smart_trigger)
+        .items(new String[]{
+            getString(R.string.smart_trigger_none),
+            getString(R.string.smart_trigger_location),
+            getString(R.string.smart_trigger_time)
+        })
+        .itemsCallbackSingleChoice(noteTmp.getTriggerType(), (dialog, view, which, text) -> {
+          handleSmartTriggerChoice(which);
+          return true;
+        })
+        .positiveText(R.string.ok)
+        .build().show();
+  }
+
+
+  private void handleSmartTriggerChoice(int choice) {
+    noteTmp.setTriggerType(choice);
+    if (choice == Note.TRIGGER_TYPE_LOCATION) {
+      requestLocationPermissions();
+    } else if (choice == Note.TRIGGER_TYPE_TIME) {
+      showTimeRangeDialog();
+    }
+  }
+
+
+  private void requestLocationPermissions() {
+    PermissionsHelper.requestPermission(this, Manifest.permission.ACCESS_FINE_LOCATION,
+        R.string.permission_coarse_location, binding.snackbarPlaceholder, () -> {
+          if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+            PermissionsHelper.requestPermission(this, Manifest.permission.ACCESS_BACKGROUND_LOCATION,
+                R.string.permission_coarse_location, binding.snackbarPlaceholder, () -> {
+                  if (!isNoteLocationValid()) {
+                    getLocation(this);
+                  }
+                  showLocationRadiusDialog();
+                });
+          } else {
+            if (!isNoteLocationValid()) {
+              getLocation(this);
+            }
+            showLocationRadiusDialog();
+          }
+        });
+  }
+
+
+  private void showLocationRadiusDialog() {
+    if (noteTmp.getTriggerLocationRadius() == null) {
+      noteTmp.setTriggerLocationRadius(100.0);
+    }
+    new MaterialDialog.Builder(mainActivity)
+        .title(R.string.smart_trigger_radius)
+        .inputType(android.text.InputType.TYPE_CLASS_NUMBER)
+        .input("100", String.valueOf(noteTmp.getTriggerLocationRadius().intValue()), (dialog, input) -> {
+          try {
+            noteTmp.setTriggerLocationRadius(Double.parseDouble(input.toString()));
+          } catch (NumberFormatException e) {
+            noteTmp.setTriggerLocationRadius(100.0);
+          }
+        })
+        .positiveText(R.string.ok)
+        .show();
+  }
+
+
+  private void showTimeRangeDialog() {
+    pickTriggerTime(true);
+  }
+
+
+  private void pickTriggerTime(boolean isStart) {
+    Calendar cal = Calendar.getInstance();
+    new android.app.TimePickerDialog(mainActivity, (view, hourOfDay, minute) -> {
+      String time = String.format("%02d:%02d", hourOfDay, minute);
+      if (isStart) {
+        noteTmp.setTriggerTimeStart(time);
+        pickTriggerTime(false);
+      } else {
+        noteTmp.setTriggerTimeEnd(time);
+      }
+    }, cal.get(Calendar.HOUR_OF_DAY), cal.get(Calendar.MINUTE), true).show();
+  }
+
 
   /**
    * Discards changes done to the note and eventually delete new attachments
@@ -2249,6 +2438,9 @@ public class DetailFragment extends BaseFragment implements OnReminderPickedList
           break;
         case R.id.timestamp:
           addTimestamp();
+          break;
+        case R.id.smart_trigger:
+          showSmartTriggerDialog();
           break;
         case R.id.pushbullet:
           MessagingExtension.mirrorMessage(mainActivity, getString(R.string.app_name),
